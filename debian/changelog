@@ -1,0 +1,5 @@
+input-device-interface (1.0.1-1) unstable; urgency=medium
+
+  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+
+ -- unknown <uos@unknown>  Tue, 24 Mar 2020 21:09:55 +0800
