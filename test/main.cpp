@@ -6,6 +6,9 @@
 #include <poll.h>
 
 
+static struct libinput_device *G_dev[100];
+static struct libinput *G_li[100];
+char** dev_nodes;
 
 void hand_event(libinput_event *event)
 {
@@ -15,28 +18,43 @@ void hand_event(libinput_event *event)
         ptrev = libinput_event_get_pointer_event(event);
 
         if (libinput_event_pointer_get_button(ptrev) == 0x110) { //BTN_LEFT
-            std::cout << "BTN_LEFT" << std::endl;
+            if(libinput_event_pointer_get_button_state(ptrev)==0){
+                std::cout << "BTN_LEFT : RELEASE" << std::endl;
+            }else{
+                std::cout << "BTN_LEFT : PRESSED" << std::endl;
+            }
 
         } else if (libinput_event_pointer_get_button(ptrev) == 0x111){ //BTN_RIGHT
-            std::cout << "BTN_RIGHT" << std::endl;
+            if(libinput_event_pointer_get_button_state(ptrev)==0){
+                std::cout << "BTN_RIGHT : RELEASE" << std::endl;
+            }else{
+                std::cout << "BTN_RIGHT : PRESSED" << std::endl;
+            }
         }
     }
 }
 
-void loop_event(struct libinput* li)
+void loop_event(struct libinput** li)
 {
     struct libinput_event *event;
-    struct pollfd fds;
-    fds.fd = libinput_get_fd(li);
-    fds.events = POLLIN;
-    fds.events = 0;
+    struct pollfd fds[100];
+    int i=0;
 
-    while (poll(&fds, 1, 1) > -1) {
-        libinput_dispatch(li);
-        while ((event = libinput_get_event(li)) != NULL) {
-            hand_event(event);
-            libinput_event_destroy(event);
-            libinput_dispatch(li);
+    for(i=0;*(li+i)!=nullptr;i++){
+        fds[i].fd = libinput_get_fd(li[i]);
+        fds[i].events = POLLIN;
+        fds[i].events = 0;
+    }
+
+
+    while (poll(fds, 1, 1) > -1) {
+        for(i=0;*(li+i)!=nullptr;i++){
+        libinput_dispatch(li[i]);
+            while ((event = libinput_get_event(li[i])) != nullptr) {
+                hand_event(event);
+                libinput_event_destroy(event);
+                libinput_dispatch(li[i]);
+            }
         }
     }
 
@@ -59,144 +77,65 @@ void print_dev_node(char** dev_node)
 
 void set_left_hand()
 {
-    char** dev_nodes = uos_list_device(DEV_POINTER);
-    struct libinput *li = NULL;
-    if (dev_nodes != nullptr) {
-
-        print_dev_node(dev_nodes);
-        if (dev_nodes[2] != nullptr) {
-            li = uos_create_libiput_device_interface("/dev/input/event5");
-            struct libinput_device *dev = uos_find_device("/dev/input/event5", li);
-            int rst = uos_set_left_handed(dev, 0);
-            std::cout << "uos_set_left_handed: " << std::string(dev_nodes[2]) << " rst=" << rst << std::endl;
-            std::cout << "uos_set_left_handed enable=" << uos_get_left_handed(dev) << std::endl;
-            loop_event(li);
-        }
-    }
-
-    uos_free_dev_node(dev_nodes);
-}
-
-
-
-
-void get_accel_speed()
-{
-    char** dev_nodes = uos_list_device(DEV_POINTER);
-
-    if (dev_nodes != nullptr) {
-        print_dev_node(dev_nodes);
-
-    }
-}
-
-void set_accel_speed()
-{
-    char** dev_nodes = uos_list_device(DEV_POINTER);
-
-    if (dev_nodes != nullptr) {
-
-        print_dev_node(dev_nodes);
-        if (dev_nodes[2] != nullptr) {
-            struct libinput *li = uos_create_libiput_device_interface("/dev/input/event5");
-            struct libinput_device *dev = uos_find_device("/dev/input/event5", li);
-
-            int rst = uos_set_accel_speed(dev, 1.0);
-            std::cout << "uos_set_accel_speed: "  << "rst=" << rst << std::endl;
-            std::cout << "uos_get_accel_speed: current accel speed=" << uos_get_accel_speed(dev) << std::endl;
-            loop_event(li);
-        }
-    }
-    uos_free_dev_node(dev_nodes);
-}
-
-void set_dwt_enable()
-{
-    char** dev_nodes = uos_list_device(DEV_POINTER);
-
-    if (dev_nodes != nullptr) {
-
-        print_dev_node(dev_nodes);
-        if (dev_nodes[2] != nullptr) {
-            struct libinput *li = uos_create_libiput_device_interface("/dev/input/event2");
-            struct libinput_device *dev = uos_find_device("/dev/input/event2", li);
-
-            int rst = uos_set_dwt_enable(dev, 1);
-            std::cout << "uos_set_dwt_enable: " << " rst=" << rst << std::endl;
-            std::cout << "uos_get_dwt_enable:" << uos_get_dwt_enable(dev) << std::endl;
-            loop_event(li);
+    int i=0;
+    for(i=0;G_dev[i]!=nullptr;i++){
+        int rst = uos_set_left_handed(G_dev[i], 1);
+        if(rst==0){
+            std::cout << libinput_device_get_name(G_dev[i])<< "set : success"  << std::endl;
+        }else{
+            std::cout << libinput_device_get_name(G_dev[i])<< "set : fail"  << std::endl;
         }
     }
 }
 
-void set_event_enable()
-{
-    char** dev_nodes = uos_list_device(DEV_POINTER);
-    struct libinput *li = NULL;
-    if (dev_nodes != nullptr) {
+void get_left_hand(){
+    int i=0;
 
-        print_dev_node(dev_nodes);
-        if (dev_nodes[2] != nullptr) {
-            li = uos_create_libiput_device_interface("/dev/input/event5");
-            struct libinput_device *dev = uos_find_device("/dev/input/event5", li);
-            int rst = uos_set_event_enable(dev, 0);
-            std::cout << "uos_set_event_enable: " << " rst=" << rst << std::endl;
-            loop_event(li);
+    for(i=0;G_dev[i]!=nullptr;i++){
+        int rst = uos_get_left_handed(G_dev[i]);
+        if(rst==0){
+            std::cout << libinput_device_get_name(G_dev[i])<< " : right mode"  << std::endl;
+        }else{
+            std::cout << libinput_device_get_name(G_dev[i])<< " : left mode"  << std::endl;
         }
     }
-
-    uos_free_dev_node(dev_nodes);
+    loop_event(G_li);
 }
 
-void  set_natural_scroll_enable()
-{
 
-    char** dev_nodes = uos_list_device(DEV_POINTER);
-    struct libinput *li = NULL;
-    if (dev_nodes != nullptr) {
 
-        print_dev_node(dev_nodes);
-        if (dev_nodes[2] != nullptr) {
-            li = uos_create_libiput_device_interface("/dev/input/event5");
-            struct libinput_device *dev = uos_find_device("/dev/input/event5", li);
-            int rst = uos_set_natural_scroll_enable(dev, 1);
-            std::cout << "uos_set_natural_scroll_enable: " << " rst=" << rst << std::endl;
-            std::cout << "uos_get_natural_scroll_enable: " << uos_get_natural_scroll_enabled(dev) << std::endl;
-            loop_event(li);
-        }
+void init(){
+    dev_nodes = uos_list_device(DEV_POINTER);
+    struct libinput *li = nullptr;
+    int i=0;
+
+    for(i=0;i<100;i++){
+        G_dev[i]=nullptr;
+        G_li[i]=nullptr;
     }
 
-    uos_free_dev_node(dev_nodes);
-}
-
-void set_tap_enable()
-{
-    char** dev_nodes = uos_list_device(DEV_POINTER);
-    struct libinput *li = NULL;
     if (dev_nodes != nullptr) {
-
         print_dev_node(dev_nodes);
-        if (dev_nodes[2] != nullptr) {
-            li = uos_create_libiput_device_interface("/dev/input/event2");
-            struct libinput_device *dev = uos_find_device("/dev/input/event2", li);
-            int rst = uos_set_tap_enable(dev, 0);
-            std::cout << "uos_set_tap_enable: " << " rst=" << rst << std::endl;
-            std::cout << "uos_get_tap_enable: " << uos_get_tap_enable(dev) << std::endl;
-            loop_event(li);
+        for(i=0;dev_nodes[i]!=nullptr;i++){
+            li = uos_create_libiput_device_interface(dev_nodes[i]);
+            struct libinput_device *dev = uos_find_device(dev_nodes[i], li);
+            G_dev[i]=dev;
+            G_li[i]=li;
         }
     }
-
-    uos_free_dev_node(dev_nodes);
 }
+
 
 int main(int argc, char *argv[])
 {
-
-    //set_left_hand();
+    init();
+    set_left_hand();
+    get_left_hand();
     //set_accel_speed();
     //set_dwt_enable();
     //set_event_enable();
     //set_natural_scroll_enable();
-    set_tap_enable();
+    //set_tap_enable();
+    uos_free_dev_node(dev_nodes);
     return 0;
 }
